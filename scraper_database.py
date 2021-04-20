@@ -57,7 +57,7 @@ def check_if_pair_is_already_in_db(my_db, names):
     """Checks if current pair is in DB, if it is,
     then returns id of pair, and adds last match score if it's not
     in Db already"""
-    sql = "SELECT * FROM pairs"
+    sql = "SELECT * FROM pairs_temp"
     cursor = my_db.cursor()
     cursor.execute(sql)
     my_result = cursor.fetchall()
@@ -77,13 +77,13 @@ def writing_in_pairs_table(my_db, temp_pair):
     """Creates new row in DB.pairs table and returns pair_id as int"""
     names = [temp_pair.home_team, temp_pair.away_team]
     pair_id = check_if_pair_is_already_in_db(my_db, names)
-
     cursor = my_db.cursor()
     temp_date = datetime.datetime.now()
     now_date = datetime.datetime(temp_date.year, temp_date.month, temp_date.day,
                                  temp_date.hour, temp_date.minute, temp_date.second)
     if pair_id == 0:
-        sql = "INSERT INTO pairs (date, effectivity, league, country, " \
+        #  TODO: pairs_temp temporarily
+        sql = "INSERT INTO pairs_temp (date, effectivity, league, country, " \
               "team_1_id, team_1_name, team_2_id, team_2_name, url, " \
               "ht_effectivity, ft_effectivity, last_updated)" \
               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
@@ -95,11 +95,54 @@ def writing_in_pairs_table(my_db, temp_pair):
         my_db.commit()
         print("creating new one")
     else:
-        sql = "UPDATE pairs SET date = %s, effectivity = %s, url = %s, ht_effectivity = %s," \
+        sql = "UPDATE pairs_temp SET date = %s, effectivity = %s, url = %s, ht_effectivity = %s," \
               "ft_effectivity = %s, last_updated = %s  WHERE pair_id = %s"
         cursor.execute(sql, (temp_pair.date_of_match, temp_pair.effectiveness,
                              temp_pair.link, temp_pair.ht_effectiveness, temp_pair.ft_effectiveness,
                              now_date, pair_id))
         my_db.commit()
-        print(pair_id)
-        print("updating")
+        print(f"Updating pair number: {pair_id}")
+    return pair_id
+
+
+#  TODO: results should be done for every historic match
+def adding_past_results(my_db, list_of_matches, master_pair):
+    """try:"""
+    """Adding all historic matches since final date (usually 01.01.2015)
+    as a separate entry in db.results table"""
+    cursor = my_db.cursor()
+
+    for i in range(len(list_of_matches)):
+        temp_pair = list_of_matches[i]
+        temp_pair.pair_id = master_pair.pair_id
+        minutes_as_string = ','.join(temp_pair.match_goals_minutes)
+        #  TODO: checking if already in db, then compare
+        #  TODO: results_temp temporarily was made in db
+        sql = "INSERT INTO results_temp (result, result_ht, result_ft, " \
+              "goals, date, postponed, url, url_active, pair_id)" \
+              "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+        cursor.execute(sql, (temp_pair.result, temp_pair.result_ht, temp_pair.result_ft,
+                             minutes_as_string, temp_pair.date_of_match,
+                             temp_pair.match_postponed, temp_pair.link,
+                             temp_pair.url_active, temp_pair.pair_id))
+        my_db.commit()
+    """except:
+        print("Failing while adding past results")"""
+
+
+def writing_in_results(my_db, temp_pair, update):
+    """Adds a new row in results table for every pair of teams"""
+    cursor = my_db.cursor()
+    if update:
+        print("Only updating in DB")
+        # to co wyżej
+    else:
+        sql = "INSERT INTO results (pair_id, result, result_ht, result_ft, " \
+              "goals, date, postponed, url, url_active)" \
+              "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"
+        cursor.execute(sql, (temp_pair.pair_id, temp_pair.result, temp_pair.result_ht,
+                             temp_pair.result_ft, temp_pair.match_goals_minutes,
+                             temp_pair.date_of_match, temp_pair.match_postponed,
+                             temp_pair.link, temp_pair.url_active))
+    my_db.commit()
+

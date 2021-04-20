@@ -14,11 +14,24 @@ class PairOfTeams:
         self.date_of_match = datetime.datetime.now()
         self.goals = []
         self.link = ""
+        self.historic_matches_links = []
         self.effectiveness = 0
         self.ht_effectiveness = 0
         self.ft_effectiveness = 0
         self.pair_id = 0
-        #  These are for result checking
+        #  These are for result checking may be gone if gonna use HistoricMatch
+        self.match_goals_minutes = ""
+        self.url_active = 1
+        self.result = ""
+        self.result_ht = ""
+        self.result_ft = ""
+        self.match_postponed = 0
+        self.late_list = []
+
+
+class HistoricMatch:
+    def __init__(self):
+        self.date_of_match = datetime.datetime.now()
         self.match_goals_minutes = ""
         self.url_active = 1
         self.result = ""

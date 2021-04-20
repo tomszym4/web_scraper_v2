@@ -1,14 +1,8 @@
-#  import scraper_main as sm
-#  import scraper_object as so
-#  import scraper_database as sd
 import main_logic as ml
 import configparser
 import os
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from time import sleep
-import mysql.connector
 import datetime
+import scraper_main as sm
 
 
 #  Starts here, should decide what to do now
@@ -32,19 +26,17 @@ def where_to_start():
     and reacts accordingly"""
     day_of_checking = datetime.datetime.now()
     print(f"Starting at: {day_of_checking}")
-    saved_progress_pickle = ml.loading_state()
     temp_list_of_links = ml.checking_save_file(main_link)
-    #  TODO: there should be pickle loading if needed
-    list_of_links = ml.main_function(temp_list_of_links, saved_progress_pickle)
+    saved_progress_pickle = ml.loading_state()
 
+    ml.main_function(temp_list_of_links, saved_progress_pickle)
 
-
-    ml.main_function(list_of_links, saved_progress_pickle)
-
+    #  TODO: Sends e-mail upon completing or when error occurs
+    #  Closing chrome card before scripts end
 
 
 where_to_start()
 
 end_of_day = datetime.datetime.now()
 print(f"DONE ALL DAY {end_of_day}")
-#  driver.quit()
+sm.closing_chrome()

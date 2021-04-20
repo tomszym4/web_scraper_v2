@@ -17,11 +17,9 @@ def checking_save_file(main_link):
         print("Starting online")
         link_for_next_day_matches = sm.get_link_for_matches_in_x_days(main_link)
         list_of_links_to_check = sm.list_of_links_to_check(link_for_next_day_matches)
-        #  TODO instead of removing items from links list (that probably makes more problems)
-        #  TODO should make a counter and saves by pickling
         cw.clearing_file()
         cw.saving_progress(list_of_links_to_check)
-        #  TODO: Setting pickle to 0 as we start from 0
+        saving_state(0)
     else:
         print("Reading CSV")
         list_of_links_to_check = list_of_saved_links
@@ -35,11 +33,14 @@ def main_function(list_of_links, save_state_counter=0):
     saving in temporary scraper_object all details about a pair,
     then decides if save current pair to DB"""
     if save_state_counter != 0:
-        list_of_links = list_of_links[save_state_counter:]
-    #  TODO: After cropping should save new list and count from 0
-    if len(list_of_links) > 0 < save_state_counter:
+        new_list_of_links = list_of_links[save_state_counter:]
+        cw.clearing_file()
+        cw.saving_progress(new_list_of_links)
+        list_of_links = new_list_of_links
+        save_state_counter = 0
+    if len(list_of_links) > 0:
         for link_to_pair in list_of_links:
-            #  print(f"Links to check: {len(list_of_links)}")
+            print(f"Currently at: {save_state_counter+1}/{len(list_of_links)}")
             status = sm.doing_one_link(link_to_pair)
             if status == 1:
                 save_state_counter += 1
@@ -47,13 +48,16 @@ def main_function(list_of_links, save_state_counter=0):
             else:
                 #  TODO:  something like reinitialization
                 print("Something went wrong, status of link == 0")
+            #  TODO: Give it its own method vvv
+        cw.clearing_file()
+        saving_state(0)
     else:
         print("DONE LIST OF LINKS, check database please")
 
 
 def saving_state(saved_progress_pickle):
     try:
-        with open('save_state.pkl', 'w') as file:
+        with open('pickle', 'wb') as file:
             pickle.dump(saved_progress_pickle, file)
     except:
         print("Problem with saving progress (saving_state)")
@@ -61,7 +65,7 @@ def saving_state(saved_progress_pickle):
 
 def loading_state():
     try:
-        with open('save_state.pkl') as file:
+        with open('pickle', 'rb') as file:
             saved_progress_pickle = pickle.load(file)
         return saved_progress_pickle
     except:
