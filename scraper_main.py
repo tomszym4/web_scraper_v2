@@ -10,11 +10,11 @@ from selenium.common.exceptions import NoSuchElementException
 from time import sleep
 
 
-DRIVER_PATH = r"C:\Users\Criminalman\PycharmProjects\webscraper\chromedriver.exe"
+driver_path = r"C:\Users\Criminalman\PycharmProjects\webscraper\chromedriver.exe"
 options = Options()
 options.headless = True
 options.add_argument("--window-size=1920,1080")
-driver = webdriver.Chrome(options=options, executable_path=DRIVER_PATH)
+driver = webdriver.Chrome(options=options, executable_path=driver_path)
 
 
 config = configparser.ConfigParser()
@@ -26,8 +26,8 @@ password = config['database']['password']
 database = config['database']['database']
 
 
-#  TODO: days=14, for testing is changed
-def get_link_for_matches_in_x_days(main_link, days=10):
+#  TODO days=13 instead of 14
+def get_link_for_matches_in_x_days(main_link, days=13):
     """Changes main_link of betexplorer.com to link for matches depended on days argument
     default is 14 days from now, values below 0 will check in past"""
     try:
@@ -103,7 +103,8 @@ def click_two_times(wd):
     try:
         wd.find_element_by_id("mutual-link-moreless").click()
     except NoSuchElementException:
-        print("There's no second link")
+        #  print("There's no second link")
+        pass
 
 
 def get_league_name(wd):
@@ -372,9 +373,9 @@ def doing_one_link(link_to_pair):
     temp_pair.effectiveness = all_effectiveness[0]
     temp_pair.ht_effectiveness = all_effectiveness[1]
     temp_pair.ft_effectiveness = all_effectiveness[2]
-    print(temp_pair.effectiveness)
+    """print(temp_pair.effectiveness)
     print(temp_pair.ht_effectiveness)
-    print(temp_pair.ft_effectiveness)
+    print(temp_pair.ft_effectiveness)"""
     #  Here can be printing effectiveness eventually
     #  TODO: giving minimal effectivity and number of matches to this method
     if sd.check_if_gonna_save_in_database(temp_pair.effectiveness):
