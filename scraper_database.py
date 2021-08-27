@@ -1,4 +1,5 @@
 import datetime
+import scraper_object as so
 
 minimal_amount_of_matches = 5
 minimal_effectivity = 8/10
@@ -10,12 +11,15 @@ def check_if_gonna_save_in_database(effectiveness):
     if int(effectiveness_check[1]) >= minimal_amount_of_matches:
         if int(effectiveness_check[0]) / int(effectiveness_check[1]) > minimal_effectivity:
             return True
+        else:
+            return False
     else:
         return False
 
 
 def writing_in_teams_table(my_db, teams, links):
     """Creates new row in DB.teams and return teams_id list"""
+    my_db.reconnect()
     cursor = my_db.cursor()
 
     teams_id = []
@@ -58,7 +62,7 @@ def check_if_pair_is_already_in_db(my_db, names):
     """Checks if current pair is in DB, if it is,
     then returns id of pair, and adds last match score if it's not
     in Db already"""
-    sql = "SELECT * FROM pairs_temp"
+    sql = "SELECT * FROM pairs"
     cursor = my_db.cursor()
     cursor.execute(sql)
     my_result = cursor.fetchall()
@@ -76,7 +80,7 @@ def check_if_pair_is_already_in_db(my_db, names):
 
 def writing_in_pairs_table(my_db, temp_pair):
     """Creates new row in DB.pairs table and returns pair_id as int"""
-    names = [temp_pair.home_team, temp_pair.away_team]
+    names = [temp_pair.team_1_name, temp_pair.team_2_name]
     pair_id = check_if_pair_is_already_in_db(my_db, names)
     cursor = my_db.cursor()
     temp_date = datetime.datetime.now()
@@ -90,27 +94,64 @@ def writing_in_pairs_table(my_db, temp_pair):
         eventually if match is postponed it should add new entry of new date anyway
         so result_checker should only removes postponed matches"""
         #  TODO: pairs_temp temporarily
-        sql = "INSERT INTO pairs_temp (date, effectivity, league, country, " \
+        sql = "INSERT INTO pairs (date, effectivity, league, country, " \
               "team_1_id, team_1_name, team_2_id, team_2_name, url, " \
               "ht_effectivity, ft_effectivity, last_updated)" \
               "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
-        cursor.execute(sql, (temp_pair.date_of_match, temp_pair.effectiveness,
-                             temp_pair.league, temp_pair.country, temp_pair.home_team_id,
-                             temp_pair.home_team, temp_pair.away_team_id, temp_pair.away_team,
-                             temp_pair.link, temp_pair.ht_effectiveness,
-                             temp_pair.ft_effectiveness, now_date))
+        cursor.execute(sql, (temp_pair.date_of_match, temp_pair.effectivity,
+                             temp_pair.league, temp_pair.country, temp_pair.team_1_id,
+                             temp_pair.team_1_name, temp_pair.team_2_id, temp_pair.team_2_name,
+                             temp_pair.url, temp_pair.ht_effectivity,
+                             temp_pair.ft_effectivity, now_date))
         my_db.commit()
         pair_id = check_if_pair_is_already_in_db(my_db, names)
         print("creating new one")
     else:
-        sql = "UPDATE pairs_temp SET date = %s, effectivity = %s, url = %s, ht_effectivity = %s," \
+        sql = "UPDATE pairs SET date = %s, effectivity = %s, url = %s, ht_effectivity = %s," \
               "ft_effectivity = %s, last_updated = %s  WHERE pair_id = %s"
-        cursor.execute(sql, (temp_pair.date_of_match, temp_pair.effectiveness,
-                             temp_pair.link, temp_pair.ht_effectiveness, temp_pair.ft_effectiveness,
+        cursor.execute(sql, (temp_pair.date_of_match, temp_pair.effectivity,
+                             temp_pair.url, temp_pair.ht_effectivity, temp_pair.ft_effectivity,
                              now_date, pair_id))
         my_db.commit()
         print(f"Updating pair number: {pair_id}")
     return pair_id
+
+
+def writing_in_upcoming_matches(my_db, temp_pair):
+    """Creates new row in DB.upcoming_matches table"""
+    cursor = my_db.cursor()
+    if not checking_if_upcoming_match_is_on_db(my_db, temp_pair):
+        sql = "INSERT INTO upcoming_matches (pair_id, date_of_match, postponed," \
+              "url, url_active, effectivity)" \
+              "VALUES (%s,%s,%s,%s,%s,%s)"
+        cursor.execute(sql, (temp_pair.pair_id, temp_pair.date_of_match,
+                             0, temp_pair.url, temp_pair.url_active, temp_pair.effectivity))
+        """temp_pair.postponed"""
+        my_db.commit()
+    else:
+        print("This match is already in DB")
+
+
+def checking_if_upcoming_match_is_on_db(my_db, temp_pair):
+    list_of_upcoming_matches = []
+    sql = "SELECT * FROM upcoming_matches"
+    cursor = my_db.cursor()
+    cursor.execute(sql)
+    my_result = cursor.fetchall()
+    for item in my_result:
+        n = 0
+        upcoming_match = so.UpcomingMatches()
+        upcoming_match.id = item[n]
+        upcoming_match.pair_id = item[n+1]
+        upcoming_match.date_of_match = item[n+2]
+        upcoming_match.postponed = item[n+3]
+        upcoming_match.url = item[n+4]
+        upcoming_match.url_active = item[n+5]
+        list_of_upcoming_matches.append(upcoming_match)
+    for match in list_of_upcoming_matches:
+        if temp_pair.pair_id == match.pair_id and temp_pair.date_of_match == match.date_of_match:
+            return True
+    return False
 
 
 def adding_past_results(my_db, list_of_matches, master_pair):
@@ -126,14 +167,16 @@ def adding_past_results(my_db, list_of_matches, master_pair):
         #  Making string out of list to pass to DB
         minutes_as_string = ','.join(temp_pair.match_goals_minutes)
         result_in_db = check_if_result_is_already_in_db(my_result, temp_pair.pair_id, temp_pair.date_of_match)
+        print(temp_pair.result_ht)
+        print(temp_pair.url)
         if not result_in_db:
             #  TODO: results_temp temporarily was made in db
-            sql = "INSERT INTO results_temp (result, result_ht, result_ft, " \
+            sql = "INSERT INTO results (result, result_ht, result_ft, " \
                   "goals, date, postponed, url, url_active, pair_id)" \
                   "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)"
             cursor.execute(sql, (temp_pair.result, temp_pair.result_ht, temp_pair.result_ft,
                                  minutes_as_string, temp_pair.date_of_match,
-                                 temp_pair.match_postponed, temp_pair.link,
+                                 temp_pair.match_postponed, temp_pair.url,
                                  temp_pair.url_active, temp_pair.pair_id))
             my_db.commit()
     """except:
@@ -141,7 +184,7 @@ def adding_past_results(my_db, list_of_matches, master_pair):
 
 
 def get_results(my_db):
-    sql = "SELECT * FROM results_temp"
+    sql = "SELECT * FROM results"
     cursor = my_db.cursor()
     cursor.execute(sql)
     my_result = cursor.fetchall()

@@ -3,41 +3,48 @@ import datetime
 
 class PairOfTeams:
     def __init__(self):
+        self.pair_id = 0
+        self.team_1_name = ""
+        self.team_1_id = 0
+        self.team_2_name = ""
+        self.team_2_id = 0
         self.country = ""
         self.league = ""
-        self.home_team = ""
-        self.home_team_id = 0
-        self.home_team_link = ""
-        self.away_team = ""
-        self.away_team_id = 0
-        self.away_team_link = ""
         self.date_of_match = datetime.datetime.now()
-        self.goals = []
-        self.link = ""
-        self.historic_matches_links = []
-        self.effectiveness = 0
-        self.ht_effectiveness = 0
-        self.ft_effectiveness = 0
-        self.pair_id = 0
-        #  These are for result checking may be gone if gonna use HistoricMatch
-        self.match_goals_minutes = ""
+        self.effectivity = ""
+        self.ht_effectivity = ""
+        self.ft_effectivity = ""
+        self.last_updated = datetime.datetime.now()
+        self.team_1_url = ""
+        self.team_2_url = ""
+        #  ---------------------------------
+        self.postponed = 0
+        self.url = ""
         self.url_active = 1
-        self.result = ""
-        self.result_ht = ""
-        self.result_ft = ""
-        self.match_postponed = 0
-        self.late_list = []
 
 
-class HistoricMatch:
+class UpcomingMatches:
     def __init__(self):
+        self.id = 0
+        self.pair_id = 0
         self.date_of_match = datetime.datetime.now()
-        self.match_goals_minutes = ""
+        self.postponed = 0
+        self.url = ""
         self.url_active = 1
+
+
+class Results:
+    def __init__(self):
+        self.id = 0
+        self.pair_id = 0
         self.result = ""
-        self.result_ht = ""
-        self.result_ft = ""
-        self.match_postponed = 0
+        self.first_half = ""
+        self.second_half = ""
+        self.goals = []
+        self.date_of_match = datetime.datetime.now()
+        self.postponed = 0
+        self.url = ""
+        self.url_active = 1
 
 
 def print_all_info(scraper_object):
