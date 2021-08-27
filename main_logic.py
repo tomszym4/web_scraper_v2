@@ -59,7 +59,7 @@ def saving_state(saved_progress_pickle):
     try:
         with open('pickle', 'wb') as file:
             pickle.dump(saved_progress_pickle, file)
-    except:
+    except Exception:
         print("Problem with saving progress (saving_state)")
 
 
@@ -68,6 +68,6 @@ def loading_state():
         with open('pickle', 'rb') as file:
             saved_progress_pickle = pickle.load(file)
         return saved_progress_pickle
-    except:
+    except Exception:
         print("Problem with loading saved_state returning 0")
         return 0

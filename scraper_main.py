@@ -7,6 +7,7 @@ import scraper_database as sd
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import ElementNotInteractableException
 from time import sleep
 
 
@@ -20,14 +21,15 @@ driver = webdriver.Chrome(options=options, executable_path=driver_path)
 config = configparser.ConfigParser()
 config.read('config.ini')
 
-host = config['database']['host']
-user = config['database']['user']
-password = config['database']['password']
-database = config['database']['database']
+host = config['old_database']['host']
+user = config['old_database']['user']
+password = config['old_database']['password']
+database = config['old_database']['database']
 
 
-#  TODO days=13 instead of 14
-def get_link_for_matches_in_x_days(main_link, days=13):
+#  TODO: 7.05.21 There is fail on betexplorer site, and showing no upcoming matches, should warning user of this
+#  TODO days=9 instead of 14
+def get_link_for_matches_in_x_days(main_link, days=16):
     """Changes main_link of betexplorer.com to link for matches depended on days argument
     default is 14 days from now, values below 0 will check in past"""
     try:
@@ -52,7 +54,7 @@ def list_of_links_to_check(main_link):
     driver.get(main_link)
     sleep(1)
     temp_list = driver.find_elements_by_class_name("table-main__tt")
-    for block in temp_list:
+    for block in temp_list: 
         elements = block.find_elements_by_tag_name("a")
         for el in elements:
             if "soccer" in el.get_attribute("href"):
@@ -63,8 +65,9 @@ def list_of_links_to_check(main_link):
 def get_date_of_match(wd):
     """finds and returns date of a match if WebElement provided
     returns date in datetime format"""
-    sleep(0.2)
+    sleep(0.5)
     try:
+        sleep(0.1)
         temp_date = wd.find_element_by_id("match-date").text
         date_list = clean_date_element(temp_date)
         date_of_match = datetime.datetime(int(date_list[2]), int(date_list[1]),
@@ -99,6 +102,8 @@ def click_two_times(wd):
         wd.find_element_by_xpath('//*[@id="mutual_div"]/a').click()
     except NoSuchElementException:
         print("There's problem with getting historical matches of current pair")
+    except ElementNotInteractableException:
+        print("Not interactable in two clicks, there's something wrong now")
     sleep(1.5)
     try:
         wd.find_element_by_id("mutual-link-moreless").click()
@@ -328,7 +333,23 @@ def creating_history_of_pair(wd):
     if len(list_of_links) > 5:
         for i in range(len(list_of_links)):
             sleep(1)
+            print(list_of_links[i])
             wd.get(list_of_links[i])
+            sleep(0.5)
+            try:
+                wd.find_element_by_xpath('/html/body/header/div[1]/div/div/div[1]').click()
+            except NoSuchElementException:
+                #  TODO: wait to load for element in selenium here
+                print("Can't change timezone1")
+            except ElementNotInteractableException:
+                print("Can't change timezone1")
+            sleep(0.2)
+            try:
+                wd.find_element_by_xpath('/html/body/header/div[1]/div/div/div[1]/ul/li[1]/a').click()
+            except NoSuchElementException:
+                print("Can't change timezone2")
+            except ElementNotInteractableException:
+                print("Can't change timezone2")
             temp_pair = so.PairOfTeams()
             temp_pair.result = get_result(wd)
             temp_pair.result_ht = get_result_ht(wd)
@@ -336,9 +357,14 @@ def creating_history_of_pair(wd):
             temp_pair.match_goals_minutes = get_minutes_of_goals(wd)
             sleep(0.5)
             temp_pair.date_of_match = get_date_of_match(wd)
+            while temp_pair.date_of_match == datetime.datetime(2000, 1, 1, 1, 0):
+                sleep(0.2)
+                temp_pair.date_of_match = get_date_of_match(wd)
             temp_pair.league = get_league_name(wd)
             temp_pair.match_postponed = check_if_postponed(wd)
-            temp_pair.link = list_of_links[i]
+            """mysql.connector.errors.OperationalError: MySQL Connection not available
+            sprawdź to"""
+            temp_pair.url = list_of_links[i]
             temp_pair.url_active = 1
             list_of_historic_matches.append(temp_pair)
             if temp_pair.date_of_match < final_date:
@@ -349,45 +375,56 @@ def creating_history_of_pair(wd):
 
 def doing_one_link(link_to_pair):
     """try:"""
-    my_db = mysql.connector.connect(
-        host=host,
-        user=user,
-        password=password,
-        database=database
-    )
     temp_pair = so.PairOfTeams()
-    temp_pair.link = link_to_pair
-    driver.get(temp_pair.link)
+    temp_pair.url = link_to_pair
+    driver.get(temp_pair.url)
     temp_pair.date_of_match = get_date_of_match(driver)
+    while temp_pair.date_of_match == datetime.datetime(2000, 1, 1, 1, 0):
+        sleep(0.2)
+        print("doing one link")
+        temp_pair.date_of_match = get_date_of_match(driver)
     click_two_times(driver)
     temp_pair.league = get_league_name(driver)
     temp_pair.country = get_leagues_country(driver)
     names_of_teams = get_names_of_teams(driver)
-    temp_pair.home_team = names_of_teams[0]
-    temp_pair.away_team = names_of_teams[1]
+    temp_pair.team_1_name = names_of_teams[0]
+    temp_pair.team_2_name = names_of_teams[1]
     links_to_teams = get_links_to_teams(driver)
-    temp_pair.home_team_link = links_to_teams[0]
-    temp_pair.away_team_link = links_to_teams[1]
+    temp_pair.team_1_url = links_to_teams[0]
+    temp_pair.team_2_url = links_to_teams[1]
     list_of_historic_matches = creating_history_of_pair(driver)
     all_effectiveness = effectiveness_of_a_pair(list_of_historic_matches)
-    temp_pair.effectiveness = all_effectiveness[0]
-    temp_pair.ht_effectiveness = all_effectiveness[1]
-    temp_pair.ft_effectiveness = all_effectiveness[2]
-    """print(temp_pair.effectiveness)
-    print(temp_pair.ht_effectiveness)
+    temp_pair.effectivity = all_effectiveness[0]
+    temp_pair.ht_effectivity = all_effectiveness[1]
+    temp_pair.ft_effectivity = all_effectiveness[2]
+    """print(temp_pair.ht_effectiveness)
     print(temp_pair.ft_effectiveness)"""
     #  Here can be printing effectiveness eventually
     #  TODO: giving minimal effectivity and number of matches to this method
-    if sd.check_if_gonna_save_in_database(temp_pair.effectiveness):
+    if sd.check_if_gonna_save_in_database(temp_pair.effectivity):
+        my_db = mysql.connector.connect(
+            host=host,
+            user=user,
+            password=password,
+            database=database
+        )
         teams_id = sd.writing_in_teams_table(my_db, names_of_teams, links_to_teams)
-        temp_pair.home_team_id = teams_id[0]
-        temp_pair.away_team_id = teams_id[1]
+        temp_pair.team_1_id = teams_id[0]
+        temp_pair.team_2_id = teams_id[1]
         temp_pair.pair_id = sd.writing_in_pairs_table(my_db, temp_pair)
         sd.adding_past_results(my_db, list_of_historic_matches, temp_pair)
+        sd.writing_in_upcoming_matches(my_db, temp_pair)
     sleep(1)
     return 1
     """except:
         return 0"""
+
+"""Currently at: 2/102
+Timezone clicked
+N/A Date
+2000-01-01 01:00:00
+https://www.betexplorer.com/soccer/south-korea/wk-league-women-2020/gyeongju-suwon-fmc/tt5wG5Kr/
+sprawdź to i czemu n/a date"""
 
 
 def closing_chrome():
